@@ -59,15 +59,23 @@ let lastStatus=null;
 function statusMsg(cn,es,key,vars){if(key)lastStatus={key,vars};$('status').textContent=key&&window.LXL?.t?T(key,vars):window.LXL?.lang==='zh-CN'?cn:es}
 // Shared English voice inventory; exercise-specific messages stay localized.
 function availableVoice(preference=voicePreference){return window.LXLAudio.voiceFor(preference)}
-function refreshVoices(){const notice=$('voice-status');if(!notice)return;const voice=availableVoice(),fallback=window.LXLAudio.voiceFallback(voicePreference,voice);notice.textContent=!window.speechSynthesis||!window.SpeechSynthesisUtterance?T('voiceUnsupported'):fallback?T(fallback):T('voiceReady',{word:voice.name+' ('+voice.lang+')'})}
+function voiceDescription(voice,fallback){
+ const hint=window.LXLAudio.voiceGender(voice);
+ return [fallback?T(fallback):'',voice?T('voiceIdentity',{word:voice.name+' ('+voice.lang+')'}):'',hint?T('voiceGenderHint',{gender:T(hint)}):''].filter(Boolean).join(' ');
+}
+function refreshVoices(){
+ for(const gender of ['female','male']){const option=$('voice-option-'+gender);if(option){const matches=window.LXLAudio.voices.filter(v=>window.LXLAudio.voiceGender(v)===gender);option.textContent=matches.length?T('voiceOptionAvailable',{word:matches.map(v=>v.name+' ('+v.lang+')').join(', ')}):T('voiceOptionMissing')}}
+ const notice=$('voice-status');if(!notice)return;const voice=availableVoice(),fallback=window.LXLAudio.voiceFallback(voicePreference,voice);notice.textContent=!window.speechSynthesis||!window.SpeechSynthesisUtterance?T('voiceUnsupported'):voiceDescription(voice,fallback);
+}
 function stopSpeech(){window.LXLAudio.stopSpeech()}
 function speak(word){window.LXLAudio.speakEnglish(word,{gender:voicePreference,
- onstart:({fallback})=>audioVoiceMessage('voiceStarted',{word,fallback}),
+ onstart:({voice,fallback})=>audioVoiceMessage('voiceStarted',{word,voice,fallback}),
  onerror:error=>audioVoiceMessage(error.code,{gender:T(voicePreference)},error.detail)
 })}
 function audioVoiceMessage(key,vars,detail){
  const fallback={voiceUnsupported:'El navegador no admite voz sintetizada',voiceUnavailable:'No hay una voz inglesa '+(voicePreference==='male'?'masculina':'femenina')+' disponible.',voiceStarted:'Pronunciando '+vars?.word,voiceTimeout:'La voz no comenzó',voiceFail:'No se pudo reproducir la voz'};
- const message=(window.LXL?T(key,vars):fallback[key])+(vars?.fallback?' '+T(vars.fallback):'')+(detail?' ('+detail+')':'');statusMsg(message,message);const notice=$('voice-status');if(notice)notice.textContent=message;
+ const description=key==='voiceStarted'?voiceDescription(vars?.voice,vars?.fallback):'';
+ const message=(window.LXL?T(key,vars):fallback[key])+(description?' '+description:'')+(detail?' ('+detail+')':'');statusMsg(message,message);const notice=$('voice-status');if(notice)notice.textContent=message;
 }
 // Close facial markers retain their approved hit areas. Resolve overlapping
 // areas by the nearest centre instead of whichever button is last in the DOM.
@@ -136,7 +144,7 @@ const tx=(key,tag='p')=>'<'+tag+' data-t="'+key+'">'+T(key)+'</'+tag+'>';
 function openModal(type){
  const title={tutorial:'tutorialTitle',success:'success',cart:'cartTitle',form:'formTitle'}[type];
  let html='<h2 id="dialog-title" data-t="'+title+'">'+T(title)+'</h2>';
- if(type==='tutorial')html+=tx('tutorialIntro')+'<div class="demo-area"><div class="demo-word" lang="en">Eye 🔊</div><div class="demo-arrow" aria-hidden="true">➜</div><div class="demo-target" aria-hidden="true">✓</div></div><div class="tutorial-steps">'+[1,2,3,4].map(n=>tx('step'+n,'div')).join('')+'</div>'+tx('voiceTitle','h3')+'<div class="voice-choices">'+['female','male'].map(g=>'<label><input type="radio" name="voice" value="'+g+'" '+(voicePreference===g?'checked':'')+'><span data-t="'+g+'">'+T(g)+'</span></label>').join('')+'<button class="btn btn-white" id="voice-test" data-t="test">'+T('test')+'</button></div><p class="notice" data-t="voiceNote">'+T('voiceNote')+'</p><p id="voice-status" role="status"></p><button class="btn btn-red" id="start" data-t="start">'+T('start')+'</button>';
+ if(type==='tutorial')html+=tx('tutorialIntro')+'<div class="demo-area"><div class="demo-word" lang="en">Eye 🔊</div><div class="demo-arrow" aria-hidden="true">➜</div><div class="demo-target" aria-hidden="true">✓</div></div><div class="tutorial-steps">'+[1,2,3,4].map(n=>tx('step'+n,'div')).join('')+'</div>'+tx('voiceTitle','h3')+'<div class="voice-choices">'+['female','male'].map(g=>'<label><input type="radio" name="voice" value="'+g+'" '+(voicePreference===g?'checked':'')+'><span><span data-t="'+g+'">'+T(g)+'</span><small id="voice-option-'+g+'"></small></span></label>').join('')+'<button class="btn btn-white" id="voice-test" data-t="test">'+T('test')+'</button></div><p class="notice" data-t="voiceNote">'+T('voiceNote')+'</p><p id="voice-status" role="status"></p><button class="btn btn-red" id="start" data-t="start">'+T('start')+'</button>';
  if(type==='success')html+=tx('successText')+'<div class="benefits">'+[1,2,3].map(n=>tx('benefit'+n,'div')).join('')+'</div><button class="btn btn-red" id="buy" data-t="continue">'+T('continue')+'</button><button class="btn btn-white" id="later" data-t="later">'+T('later')+'</button>'+tx('priceNote');
  if(type==='cart')html+=tx('productDemo')+'<div class="cartitem"><b lang="en">Parts of the Body</b>'+tx('quantity','span')+'<strong>$1.00 USD</strong></div><div class="total">'+tx('total','span')+'<strong>$1.00 USD</strong></div>'+tx('priceNote')+'<button class="btn btn-red" id="next" data-t="formAction">'+T('formAction')+'</button><button class="btn btn-white" id="back" data-t="backCart">'+T('backCart')+'</button>';
  if(type==='form')html+=tx('formNote')+'<div class="fields">'+['name','email','country','language','message'].map(k=>'<label><span data-t="'+k+'">'+T(k)+'</span><input disabled type="'+(k==='email'?'email':'text')+'"></label>').join('')+'</div>'+tx('priceNote')+'<button class="btn btn-red" disabled data-t="sendDisabled">'+T('sendDisabled')+'</button><button class="btn btn-white" id="back" data-t="backCart">'+T('backCart')+'</button>';
@@ -171,3 +179,28 @@ function showLanguageWelcome(){
  layer.querySelector('#welcome-go').addEventListener('click',()=>{layer.remove();openModal('tutorial')});layer.addEventListener('keydown',e=>{if(e.key==='Tab'){const first=sel,last=layer.querySelector('#welcome-go');if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});sel.focus();
 }
 showLanguageWelcome();
+
+// Exercise header menu lifecycle. The shared renderer and other pages stay intact.
+document.addEventListener('DOMContentLoaded',()=>{
+ let boundMenu=null;
+ const menu=()=>document.querySelector('.header .body-site-menu');
+ function syncMenu(){
+  const m=menu(),summary=m?.querySelector('summary'),nav=m?.querySelector('nav');if(!summary||!nav)return;
+  const label=window.LXL?.t('bodyMenu')||'Menu';summary.textContent=label;
+  summary.setAttribute('aria-label',[label,nav.getAttribute('aria-label')].filter(Boolean).join(': '));summary.setAttribute('aria-expanded',String(m.open));
+  nav.id='body-menu-links';summary.setAttribute('aria-controls',nav.id);
+  if(!m.open)return;
+  const r=summary.getBoundingClientRect(),width=document.documentElement.clientWidth,height=window.visualViewport?.height||window.innerHeight;
+  const below=height-r.bottom-8,above=r.top-8,up=below<120&&above>below;
+  const space=Math.max(44,up?above-8:below-8);nav.style.maxHeight=space+'px';
+  const panel=nav.getBoundingClientRect();nav.style.left=Math.max(8,Math.min(r.left,width-panel.width-8))+'px';
+  nav.style.top=(up?Math.max(8,r.top-panel.height-8):r.bottom+8)+'px';
+ }
+ function bindMenu(){const m=menu();if(m&&m!==boundMenu){m.addEventListener('toggle',syncMenu);boundMenu=m}syncMenu()}
+ document.addEventListener('pointerdown',event=>{const m=menu();if(m?.open&&!m.contains(event.target)){m.open=false;syncMenu()}});
+ document.addEventListener('click',event=>{const m=menu();if(event.target.closest('.body-site-menu nav a')&&m){m.open=false;syncMenu()}});
+ document.addEventListener('keydown',event=>{const m=menu();if(event.key==='Escape'&&m?.open){m.open=false;syncMenu();m.querySelector('summary').focus()}});
+ window.addEventListener('resize',syncMenu);window.visualViewport?.addEventListener('resize',syncMenu);
+ window.addEventListener('scroll',()=>{if(menu()?.open)syncMenu()},{passive:true});
+ document.addEventListener('lxl-language-change',bindMenu);bindMenu();
+});

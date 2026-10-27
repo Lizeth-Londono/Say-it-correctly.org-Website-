@@ -7,8 +7,11 @@
  const notify=error=>{lastError=error;console.warn('[SayIt audio]',error.code,error.cause||'');listeners.forEach(fn=>fn(error))};
  function refreshVoices(){try{voices=(window.speechSynthesis?.getVoices()||[]).filter(v=>/^en(?:[-_]|$)/i.test(v.lang)).sort((a,b)=>Number(b.localService)-Number(a.localService)||rank(a)-rank(b))}catch(error){voices=[];notify({code:'voiceFail',cause:error})}voiceListeners.forEach(fn=>fn());return voices}
  const rank=v=>/^en[-_]US$/i.test(v.lang)?0:/^en[-_]GB$/i.test(v.lang)?1:2;
- function voiceFor(gender){return (gender&&voices.find(v=>genders[gender]?.test(v.name)))||voices[0]||null}
- function voiceFallback(gender,voice=voiceFor(gender)){return !voice?'voiceDefault':gender&&!genders[gender]?.test(voice.name)?'voiceFallback':null}
+ // SpeechSynthesisVoice has no standard gender field. Names are hints only;
+ // conflicting or unrecognized names must never be labelled as a known gender.
+ function voiceGender(voice){if(!voice||!/^en(?:[-_]|$)/i.test(voice.lang))return null;const female=genders.female.test(voice.name),male=genders.male.test(voice.name);return female===male?null:female?'female':'male'}
+ function voiceFor(gender){return (gender&&voices.find(v=>voiceGender(v)===gender))||voices[0]||null}
+ function voiceFallback(gender,voice=voiceFor(gender)){return !voice?'voiceDefault':!voiceGender(voice)?'voiceUnknown':gender&&voiceGender(voice)!==gender?'voiceFallback':null}
  function stopSpeech(){clearTimeout(timer);timer=null;const previous=active;active=null;const synth=window.speechSynthesis;if(synth&&(previous||synth.pending||synth.speaking))synth.cancel()}
  function speakEnglish(text,{gender,onstart=()=>{},onend=()=>{},onerror=()=>{}}={}){
   const synth=window.speechSynthesis,Utterance=window.SpeechSynthesisUtterance;
@@ -20,7 +23,7 @@
   // inventory is normal during startup; the engine can resolve en-US itself.
   stopSpeech();const u=new Utterance(text);active=u;if(voice)u.voice=voice;u.lang=voice?.lang||'en-US';u.rate=.95;u.pitch=1;u.volume=1;
   const fail=error=>{if(active!==u)return;clearTimeout(timer);timer=null;active=null;onerror(error)};
-  u.onstart=()=>{if(active!==u)return;clearTimeout(timer);timer=null;onstart({text,voice,fallback:voiceFallback(gender,voice)})};
+  u.onstart=()=>{if(active!==u)return;clearTimeout(timer);timer=null;onstart({text,voice,genderHint:voiceGender(voice),fallback:voiceFallback(gender,voice)})};
   u.onend=()=>{if(active!==u)return;clearTimeout(timer);timer=null;active=null;onend()};
   u.onerror=e=>fail({code:'voiceFail',detail:e.error});
   // Watchdog detects a stalled engine; it does not delay speak().
@@ -43,7 +46,7 @@
    return Promise.resolve(a.play()).then(()=>true).catch(error=>{if(request!==sequence&&error.name==='AbortError')return false;notify({code:'effectFail',cause:error});return false});
   }catch(error){notify({code:'effectFail',cause:error});return Promise.resolve(false)}
  }
- window.LXLAudio={initEffects,warmEffects,playError,speakEnglish,stopSpeech,refreshVoices,voiceFor,voiceFallback,get voices(){return voices},onError(fn){listeners.add(fn);if(lastError)fn(lastError);return()=>listeners.delete(fn)},onVoicesChanged(fn){voiceListeners.add(fn);return()=>voiceListeners.delete(fn)}};
+ window.LXLAudio={initEffects,warmEffects,playError,speakEnglish,stopSpeech,refreshVoices,voiceFor,voiceGender,voiceFallback,get voices(){return voices},onError(fn){listeners.add(fn);if(lastError)fn(lastError);return()=>listeners.delete(fn)},onVoicesChanged(fn){voiceListeners.add(fn);return()=>voiceListeners.delete(fn)}};
  window.speechSynthesis?.addEventListener?.('voiceschanged',refreshVoices);refreshVoices();initEffects();
  document.addEventListener?.('pointerdown',warmEffects,{once:true,capture:true});document.addEventListener?.('keydown',warmEffects,{once:true,capture:true});
 })();
