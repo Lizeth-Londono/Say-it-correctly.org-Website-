@@ -259,3 +259,26 @@ html.modal-open{scrollbar-gutter:stable}
  .tutorial-dialog .demo-area{min-height:80px;padding:10px}
  .tutorial-dialog .tutorial-steps>div{padding:8px}
 }
+
+/* Responsive scroll and pronunciation controls */
+.word-card,.choose-word,.target{touch-action:pan-y!important}
+@media(max-width:1024px),(pointer:coarse){
+.word-card{display:grid;grid-template-columns:minmax(0,1fr) 44px;min-width:0}
+.choose-word{overflow-wrap:anywhere}
+.word-card .speak{width:44px!important;height:44px!important;min-width:44px;min-height:44px;flex:0 0 44px!important;justify-self:end!important}
+}
+@media(max-width:1024px){
+ .layout{overflow:visible;height:auto;min-height:0}
+ .figure-scroll,.vocab,.vocab .words{overscroll-behavior-y:auto}
+ .figure-scroll{touch-action:pan-y}
+ .word-card{font-size:14px}
+ .choose-word{padding:8px 4px}
+}
+@media(max-width:700px){
+ .vocab .words{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1024px) and (max-height:600px) and (orientation:landscape){
+ body{padding-bottom:0}
+ .vocab{position:static;height:auto;max-height:none;overflow:visible}
+ .vocab .words{max-height:none;overflow:visible;flex:none}
+}

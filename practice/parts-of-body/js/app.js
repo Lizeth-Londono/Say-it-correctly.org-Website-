@@ -59,15 +59,15 @@ let lastStatus=null;
 function statusMsg(cn,es,key,vars){if(key)lastStatus={key,vars};$('status').textContent=key&&window.LXL?.t?T(key,vars):window.LXL?.lang==='zh-CN'?cn:es}
 // Shared English voice inventory; exercise-specific messages stay localized.
 function availableVoice(preference=voicePreference){return window.LXLAudio.voiceFor(preference)}
-function refreshVoices(){const notice=$('voice-status');if(!notice)return;const voice=availableVoice();notice.textContent=!window.speechSynthesis?T('voiceUnsupported'):voice?T('voiceReady',{word:voice.name+' ('+voice.lang+')'}):T('voiceUnavailable',{gender:T(voicePreference)})}
+function refreshVoices(){const notice=$('voice-status');if(!notice)return;const voice=availableVoice(),fallback=window.LXLAudio.voiceFallback(voicePreference,voice);notice.textContent=!window.speechSynthesis||!window.SpeechSynthesisUtterance?T('voiceUnsupported'):fallback?T(fallback):T('voiceReady',{word:voice.name+' ('+voice.lang+')'})}
 function stopSpeech(){window.LXLAudio.stopSpeech()}
 function speak(word){window.LXLAudio.speakEnglish(word,{gender:voicePreference,
- onstart:()=>audioVoiceMessage('voiceStarted',{word}),
+ onstart:({fallback})=>audioVoiceMessage('voiceStarted',{word,fallback}),
  onerror:error=>audioVoiceMessage(error.code,{gender:T(voicePreference)},error.detail)
 })}
 function audioVoiceMessage(key,vars,detail){
  const fallback={voiceUnsupported:'El navegador no admite voz sintetizada',voiceUnavailable:'No hay una voz inglesa '+(voicePreference==='male'?'masculina':'femenina')+' disponible.',voiceStarted:'Pronunciando '+vars?.word,voiceTimeout:'La voz no comenzó',voiceFail:'No se pudo reproducir la voz'};
- const message=(window.LXL?T(key,vars):fallback[key])+(detail?' ('+detail+')':'');statusMsg(message,message);const notice=$('voice-status');if(notice)notice.textContent=message;
+ const message=(window.LXL?T(key,vars):fallback[key])+(vars?.fallback?' '+T(vars.fallback):'')+(detail?' ('+detail+')':'');statusMsg(message,message);const notice=$('voice-status');if(notice)notice.textContent=message;
 }
 // Close facial markers retain their approved hit areas. Resolve overlapping
 // areas by the nearest centre instead of whichever button is last in the DOM.
@@ -91,10 +91,43 @@ function recall(id){if(!completed.has(id))return;highlighted=highlighted===id?nu
 function updateUI(){for(const card of document.querySelectorAll('.word-card')){const id=card.dataset.id,done=completed.has(id);card.classList.toggle('done',done);card.classList.toggle('recall',done&&highlighted===id);card.classList.toggle('selected',selected===id&&!done);card.querySelector('.choose-word').textContent=itemFor(id).english+(done?' ✓':'');card.querySelector('.choose-word').disabled=locked&&!done;card.querySelector('.choose-word').setAttribute('aria-label',T(done?'reviewLabel':'chooseLabel',{word:itemFor(id).english}))}for(const dot of document.querySelectorAll('.target')){dot.classList.toggle('correct',completed.has(dot.dataset.id));dot.classList.toggle('recall',highlighted===dot.dataset.id);dot.setAttribute('aria-label',T(completed.has(dot.dataset.id)?'reviewLabel':'markerLabel',{word:completed.has(dot.dataset.id)?itemFor(dot.dataset.id).english:DATA.findIndex(d=>d.id===dot.dataset.id)+1}))}for(const e of document.querySelectorAll('#target-lines [data-id]'))e.classList.toggle('recall',highlighted===e.dataset.id)}
 function attempt(wordId,pointId){if(locked||!wordId||completed.has(wordId))return;const d=itemFor(wordId);if(wordId!==pointId){statusMsg('','', 'retry',{word:d.english});selected=null;updateUI();playError();return}completed.add(wordId);selected=null;highlighted=null;const n=completed.size;$('counter').textContent=`${T('counter')}: ${n} / ${FREE_LIMIT}`;$('progress').setAttribute('aria-valuenow',n);$('fill').style.width=(100*n/FREE_LIMIT)+'%';statusMsg('','', 'correct',{word:d.english});updateUI();if(n===FREE_LIMIT){locked=true;updateUI();setTimeout(()=>openModal('success'),550)}}
 let skipClick=false;
-function startDrag(e,d,button){if(e.button!==0||locked||completed.has(d.id))return;const x=e.clientX,y=e.clientY;let moved=false;const move=ev=>{if(!moved&&Math.hypot(ev.clientX-x,ev.clientY-y)>9){moved=true;dragGhost=document.createElement('div');dragGhost.className='drag-ghost';dragGhost.textContent=d.english;document.body.append(dragGhost)}if(moved){dragGhost.style.left=ev.clientX+'px';dragGhost.style.top=ev.clientY+'px';const sc=$('figure-scroll'),r=sc.getBoundingClientRect();if(ev.clientX>r.left&&ev.clientX<r.right){if(ev.clientY<r.top+45)sc.scrollTop-=17;if(ev.clientY>r.bottom-45)sc.scrollTop+=17}document.querySelectorAll('.target').forEach(t=>t.classList.remove('is-hover'));markerAtPoint(ev.clientX,ev.clientY)?.classList.add('is-hover')}};
-const clean=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);dragGhost?.remove();dragGhost=null;document.querySelectorAll('.target').forEach(t=>t.classList.remove('is-hover'))};
-const up=ev=>{const hit=moved?markerAtPoint(ev.clientX,ev.clientY):null;clean();if(moved){skipClick=true;setTimeout(()=>skipClick=false,150);if(hit)attempt(d.id,hit.dataset.id);else statusMsg('','','returned')}};const cancel=()=>clean();
-window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);
+function startDrag(e,d,button){
+ if(e.button!==0||e.isPrimary===false||locked||completed.has(d.id))return;
+ const x=e.clientX,y=e.clientY,pointer=e.pointerId,touch=e.pointerType==='touch';
+ let moved=false,held=false;
+ const hold=touch?setTimeout(()=>{held=true},300):null;
+ const clean=()=>{
+  clearTimeout(hold);
+  window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);
+  window.removeEventListener('touchmove',touchMove);window.removeEventListener('touchend',touchEnd);window.removeEventListener('touchcancel',cancel);
+  dragGhost?.remove();dragGhost=null;document.querySelectorAll('.target').forEach(t=>t.classList.remove('is-hover'));
+ };
+ const track=(point,event)=>{
+  const dx=point.clientX-x,dy=point.clientY-y;
+  if(!moved){
+   if(Math.hypot(dx,dy)<=9)return;
+   // A quick vertical swipe belongs to native scrolling. A sideways gesture or
+   // a stationary hold followed by movement deliberately starts a touch drag.
+   if(touch&&!held&&Math.abs(dx)<=Math.abs(dy)*1.2){clean();return}
+   moved=true;clearTimeout(hold);dragGhost=document.createElement('div');dragGhost.className='drag-ghost';dragGhost.textContent=d.english;document.body.append(dragGhost);
+  }
+  if(event.cancelable)event.preventDefault();
+  dragGhost.style.left=point.clientX+'px';dragGhost.style.top=point.clientY+'px';
+  const sc=$('figure-scroll'),r=sc.getBoundingClientRect();
+  if(point.clientX>r.left&&point.clientX<r.right){
+   if(sc.scrollHeight>sc.clientHeight){if(point.clientY<r.top+45)sc.scrollTop-=17;if(point.clientY>r.bottom-45)sc.scrollTop+=17}
+   else if(point.clientY<45)window.scrollBy(0,-17);else if(point.clientY>window.innerHeight-45)window.scrollBy(0,17);
+  }
+  document.querySelectorAll('.target').forEach(t=>t.classList.remove('is-hover'));markerAtPoint(point.clientX,point.clientY)?.classList.add('is-hover');
+ };
+ const finish=point=>{const hit=moved?markerAtPoint(point.clientX,point.clientY):null;clean();if(moved){skipClick=true;setTimeout(()=>skipClick=false,150);if(hit)attempt(d.id,hit.dataset.id);else statusMsg('','','returned')}};
+ const move=ev=>{if(!touch&&ev.pointerId===pointer)track(ev,ev)};
+ const up=ev=>{if(!touch&&ev.pointerId===pointer)finish(ev)};
+ const cancel=()=>clean();
+ const touchMove=ev=>{if(ev.touches.length!==1){clean();return}track(ev.touches[0],ev)};
+ const touchEnd=ev=>{if(ev.changedTouches.length)finish(ev.changedTouches[0]);else clean()};
+ window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);
+ if(touch){window.addEventListener('touchmove',touchMove,{passive:false});window.addEventListener('touchend',touchEnd);window.addEventListener('touchcancel',cancel)}
 }
 function reset(){completed.clear();locked=false;selected=null;highlighted=null;$('counter').textContent=`${T('counter')}: 0 / ${FREE_LIMIT}`;$('progress').setAttribute('aria-valuenow',0);$('fill').style.width='0%';updateUI();closeModal();statusMsg('','','resetDone')}
 let returnFocus=null;
