@@ -79,6 +79,31 @@
  window.LXLPlatform={localURL,render,brand:data.brand,labels:()=>footerCopy[LXL.lang].labels,contactCTA:()=>contactCTA[LXL.lang],pageTitle:key=>key==='about'?aboutTitles[LXL.lang]:contactTitles[LXL.lang]};
 })();
 
+
+/* Shared mobile menu lifecycle; preserves the existing toggle and link renderer. */
+document.addEventListener('DOMContentLoaded',()=>{
+ const button=document.getElementById('menu'),panel=document.getElementById('links');if(!button||!panel)return;
+ function close(){panel.classList.remove('open');button.setAttribute('aria-expanded','false')}
+ function position(){
+  if(!panel.classList.contains('open'))return;
+  if(window.innerWidth>900){close();for(const name of ['left','top','max-height'])panel.style.removeProperty(name);return}
+  button.setAttribute('aria-expanded','true');
+  const anchor=button.getBoundingClientRect(),width=document.documentElement.clientWidth,height=window.visualViewport?.height||window.innerHeight;
+  const below=height-anchor.bottom-8,above=anchor.top-8,up=below<120&&above>below;
+  panel.style.maxHeight=Math.max(44,(up?above:below)-8)+'px';
+  const box=panel.getBoundingClientRect(),parent=(panel.offsetParent||document.querySelector('.header')).getBoundingClientRect();
+  panel.style.left=Math.max(8,Math.min(anchor.left,width-box.width-8))-parent.left+'px';
+  panel.style.top=(up?Math.max(8,anchor.top-box.height-8):anchor.bottom+8)-parent.top+'px';
+ }
+ button.addEventListener('click',position);
+ panel.addEventListener('click',event=>{if(event.target.closest('a'))close()});
+ document.addEventListener('pointerdown',event=>{if(panel.classList.contains('open')&&!panel.contains(event.target)&&!button.contains(event.target))close()});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel.classList.contains('open')){close();button.focus()}});
+ window.addEventListener('resize',position);window.visualViewport?.addEventListener('resize',position);
+ window.addEventListener('scroll',position,{passive:true});document.addEventListener('lxl-language-change',position);
+});
+
+/* End shared mobile menu lifecycle. */
 /* Presentation only: preserve each translated heading's exact text and hierarchy. */
 (()=>{'use strict';
  if(typeof MutationObserver==='undefined')return;

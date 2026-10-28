@@ -44,7 +44,7 @@ function updateBodyLocale(){
  document.querySelectorAll('.guide h2').forEach(e=>e.textContent=T('guide'));
  document.querySelectorAll('.guide .step').forEach((e,i)=>{const k=['step1','step2','step3','step4'][i];if(k)e.textContent=`${i+1}. ${T(k)}`});
  const select=$('body-language');if(select)select.value=window.LXL.lang;
- document.querySelector('.brand small').textContent=T('brandNote');document.querySelector('.guide .hint').textContent=T('voiceNote');
+ document.querySelector('.brand small').textContent=T('brandNote');document.querySelector('.guide .hint').textContent=T('voiceHelp');
  $('close').setAttribute('aria-label',T('close'));$('body-language').setAttribute('aria-label',T('language'));$('progress').setAttribute('aria-label',T('counter'));
  $('figure-scroll').setAttribute('aria-label',T('figureLabel'));$('figure').setAttribute('aria-label',T('figureLabel'));$('figure').querySelector('img').alt=T('figureLabel');
  updateUI();document.querySelectorAll('.speak').forEach(e=>e.setAttribute('aria-label',T('pronounceLabel',{word:itemFor(e.parentElement.dataset.id).english})));if(lastStatus)statusMsg('','',lastStatus.key,lastStatus.vars);else $('status').textContent=T('step1');
@@ -68,14 +68,18 @@ function refreshVoices(){
  const notice=$('voice-status');if(!notice)return;const voice=availableVoice(),fallback=window.LXLAudio.voiceFallback(voicePreference,voice);notice.textContent=!window.speechSynthesis||!window.SpeechSynthesisUtterance?T('voiceUnsupported'):voiceDescription(voice,fallback);
 }
 function stopSpeech(){window.LXLAudio.stopSpeech()}
-function speak(word){window.LXLAudio.speakEnglish(word,{gender:voicePreference,
+function speak(word){if(modalName==='tutorial')$('voice-error')?.remove();window.LXLAudio.speakEnglish(word,{gender:voicePreference,
  onstart:({voice,fallback})=>audioVoiceMessage('voiceStarted',{word,voice,fallback}),
  onerror:error=>audioVoiceMessage(error.code,{gender:T(voicePreference)},error.detail)
 })}
 function audioVoiceMessage(key,vars,detail){
- const fallback={voiceUnsupported:'El navegador no admite voz sintetizada',voiceUnavailable:'No hay una voz inglesa '+(voicePreference==='male'?'masculina':'femenina')+' disponible.',voiceStarted:'Pronunciando '+vars?.word,voiceTimeout:'La voz no comenzó',voiceFail:'No se pudo reproducir la voz'};
- const description=key==='voiceStarted'?voiceDescription(vars?.voice,vars?.fallback):'';
- const message=(window.LXL?T(key,vars):fallback[key])+(description?' '+description:'')+(detail?' ('+detail+')':'');statusMsg(message,message);const notice=$('voice-status');if(notice)notice.textContent=message;
+ if(modalName==='tutorial'){
+  if(key==='voiceStarted'){$('voice-error')?.remove();return}
+  let error=$('voice-error');if(!error){error=document.createElement('p');error.id='voice-error';error.setAttribute('role','status');error.setAttribute('aria-live','polite');error.setAttribute('data-t','voiceFail');$('dialog-content').insertBefore(error,$('start'))}
+  error.textContent=T('voiceFail');return;
+ }
+ if(key==='voiceStarted')return;
+ const message=window.LXL?T('voiceFail'):'No se pudo reproducir el audio. Inténtalo de nuevo.';statusMsg(message,message);
 }
 // Close facial markers retain their approved hit areas. Resolve overlapping
 // areas by the nearest centre instead of whichever button is last in the DOM.
@@ -144,7 +148,7 @@ const tx=(key,tag='p')=>'<'+tag+' data-t="'+key+'">'+T(key)+'</'+tag+'>';
 function openModal(type){
  const title={tutorial:'tutorialTitle',success:'success',cart:'cartTitle',form:'formTitle'}[type];
  let html='<h2 id="dialog-title" data-t="'+title+'">'+T(title)+'</h2>';
- if(type==='tutorial')html+=tx('tutorialIntro')+'<div class="demo-area"><div class="demo-word" lang="en">Eye 🔊</div><div class="demo-arrow" aria-hidden="true">➜</div><div class="demo-target" aria-hidden="true">✓</div></div><div class="tutorial-steps">'+[1,2,3,4].map(n=>tx('step'+n,'div')).join('')+'</div>'+tx('voiceTitle','h3')+'<div class="voice-choices">'+['female','male'].map(g=>'<label><input type="radio" name="voice" value="'+g+'" '+(voicePreference===g?'checked':'')+'><span><span data-t="'+g+'">'+T(g)+'</span><small id="voice-option-'+g+'"></small></span></label>').join('')+'<button class="btn btn-white" id="voice-test" data-t="test">'+T('test')+'</button></div><p class="notice" data-t="voiceNote">'+T('voiceNote')+'</p><p id="voice-status" role="status"></p><button class="btn btn-red" id="start" data-t="start">'+T('start')+'</button>';
+ if(type==='tutorial')html+=tx('tutorialIntro')+'<div class="demo-area"><div class="demo-word" lang="en">Eye 🔊</div><div class="demo-arrow" aria-hidden="true">➜</div><div class="demo-target" aria-hidden="true">✓</div></div><div class="tutorial-steps">'+[1,2,3,4].map(n=>tx('step'+n,'div')).join('')+'</div>'+'<div class="voice-choices">'+['female','male'].map(g=>'<label><input type="radio" name="voice" value="'+g+'" '+(voicePreference===g?'checked':'')+'><span data-t="'+g+'">'+T(g)+'</span></label>').join('')+'<button class="btn btn-white" id="voice-test" data-t="test">'+T('test')+'</button></div><button class="btn btn-red" id="start" data-t="start">'+T('start')+'</button>';
  if(type==='success')html+=tx('successText')+'<div class="benefits">'+[1,2,3].map(n=>tx('benefit'+n,'div')).join('')+'</div><button class="btn btn-red" id="buy" data-t="continue">'+T('continue')+'</button><button class="btn btn-white" id="later" data-t="later">'+T('later')+'</button>'+tx('priceNote');
  if(type==='cart')html+=tx('productDemo')+'<div class="cartitem"><b lang="en">Parts of the Body</b>'+tx('quantity','span')+'<strong>$1.00 USD</strong></div><div class="total">'+tx('total','span')+'<strong>$1.00 USD</strong></div>'+tx('priceNote')+'<button class="btn btn-red" id="next" data-t="formAction">'+T('formAction')+'</button><button class="btn btn-white" id="back" data-t="backCart">'+T('backCart')+'</button>';
  if(type==='form')html+=tx('formNote')+'<div class="fields">'+['name','email','country','language','message'].map(k=>'<label><span data-t="'+k+'">'+T(k)+'</span><input disabled type="'+(k==='email'?'email':'text')+'"></label>').join('')+'</div>'+tx('priceNote')+'<button class="btn btn-red" disabled data-t="sendDisabled">'+T('sendDisabled')+'</button><button class="btn btn-white" id="back" data-t="backCart">'+T('backCart')+'</button>';
@@ -167,7 +171,7 @@ $('reset').onclick=reset;$('preview').onclick=()=>openModal('cart');$('reopen-tu
 // Prevent an ordinary click after a drag from accidentally selecting the word.
 document.addEventListener('click',e=>{if(skipClick){e.stopPropagation();e.preventDefault();skipClick=false}},true);
 window.LXLAudio.onVoicesChanged(refreshVoices);refreshVoices();
-window.LXLAudio.onError(error=>{const status=$('effect-status');status.hidden=false;status.dataset.audioError=error.code;status.textContent=T(error.code)});
+window.LXLAudio.onError(error=>{if(error.code!=='effectFail')return;const status=$('effect-status');status.hidden=false;status.dataset.audioError=error.code;status.textContent=T(error.code)});
 render();updateBodyLocale();
 // A first-time visitor selects an instruction language before beginning.
 function showLanguageWelcome(){
