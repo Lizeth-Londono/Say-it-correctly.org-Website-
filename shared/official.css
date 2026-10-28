@@ -25,7 +25,7 @@
 .hero .illustration>a.float{text-decoration:none;min-height:44px;display:inline-flex;align-items:center;max-width:calc(100% - 24px);overflow-wrap:anywhere}
 .header .links{min-width:0;flex-wrap:wrap}.header .links a{overflow-wrap:anywhere}
 .body-site-menu .navbtn{background:#123b78;color:#fff;border-radius:10px}
-.footer.site-footer{background:#102b52;color:#e0e9f8;text-align:left;font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:16px 0 10px}
+.footer.site-footer{background:#102b52;color:#e0e9f8;text-align:left;font:14px/1.5 var(--learning-font);padding:16px 0 10px}
 .site-footer .site-footer-wrap{width:min(1160px,calc(100% - 36px));margin:auto}
 .site-footer .site-footer-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr);gap:16px 24px;padding-bottom:10px;align-items:start}
 .site-footer .site-footer-identity,.site-footer .site-footer-translations,.site-footer .site-footer-navigation{min-width:0}

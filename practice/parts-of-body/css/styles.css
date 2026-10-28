@@ -71,7 +71,7 @@
 @media(max-width:390px){.layout{grid-template-columns:minmax(0,43%) minmax(0,57%);gap:5px}.vocab{padding:7px}.word-card{font-size:11px}.header .btn{padding:8px}}
 @media(prefers-reduced-motion:reduce){.demo-word,.demo-target{animation:none!important}}
 
-.word-card{padding:0 6px 0 0}.choose-word{font:inherit;min-width:0;flex:1;align-self:stretch;text-align:left;border:0;background:transparent;color:inherit;font-weight:850;padding:10px 7px 10px 12px;touch-action:none;cursor:grab}.choose-word:disabled{cursor:default}.word-card .speak{font-family:system-ui;font-weight:normal;border:0;cursor:pointer}.word-card.selected{outline:2px solid #236bb6}.word-card.done .choose-word{cursor:pointer}.target.recall{box-shadow:0 0 0 4px #fff,0 0 0 8px #00c5a0,0 0 15px #18b896!important}.target.correct::after{font-size:11px}
+.word-card{padding:0 6px 0 0}.choose-word{font:inherit;min-width:0;flex:1;align-self:stretch;text-align:left;border:0;background:transparent;color:inherit;font-weight:850;padding:10px 7px 10px 12px;touch-action:none;cursor:grab}.choose-word:disabled{cursor:default}.word-card .speak{font-family:var(--learning-font);font-weight:normal;border:0;cursor:pointer}.word-card.selected{outline:2px solid #236bb6}.word-card.done .choose-word{cursor:pointer}.target.recall{box-shadow:0 0 0 4px #fff,0 0 0 8px #00c5a0,0 0 15px #18b896!important}.target.correct::after{font-size:11px}
 
 /* V2.2 — marcadores visuales uniformes, tamaño de referencia aprobado.
    Las coordenadas anatómicas y la lógica de evaluación no cambian. */
